@@ -1,8 +1,10 @@
 package pictureremind.rty813.xyz.autobackground;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.drawable.BitmapDrawable;
@@ -10,6 +12,8 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.graphics.Palette;
 import android.support.v7.widget.Toolbar;
 
@@ -22,6 +26,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 /**
  * Created by doufu on 2017/12/11.
@@ -50,6 +57,20 @@ public class AutoBackground {
     public AutoBackground(Context context, @Nullable Toolbar toolbar){
         mContext = context;
         mToolbar = toolbar;
+//        if (PackageManager.PERMISSION_GRANTED!= mContext.checkCallingOrSelfPermission("android.permission.INTERNET")
+//        || PackageManager.PERMISSION_GRANTED != mContext.checkCallingOrSelfPermission("android.permission.WRITE_EXTERNAL_STORAGE")) {
+//            throw new AutoBackgroundException("You don't have the INTERNET or WRITE_EXTERNAL_STORAGE permission");
+//        }
+
+//        if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+//                != PackageManager.PERMISSION_GRANTED) {
+//            //申请WRITE_EXTERNAL_STORAGE权限
+//            ActivityCompat.requestPermissions((Activity) mContext, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},0);
+//        }
+        if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.INTERNET)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions((Activity) mContext, new String[]{Manifest.permission.INTERNET},0);
+        }
     }
 
     public void start() {
@@ -77,7 +98,7 @@ public class AutoBackground {
 
         //        设置背景图片
         Bitmap bitmap = null;
-        File file = new File(mContext.getExternalFilesDir(null), "background.jpg");
+        final File file = new File(mContext.getExternalFilesDir(null), "background.jpg");
         if (file.exists()) {
             bitmap = BitmapFactory.decodeFile(mContext.getExternalFilesDir(null) + "/background.jpg");
         } else if (mDefaultBgEnable) {
@@ -148,7 +169,12 @@ public class AutoBackground {
                     }
                     final SharedPreferences sharedPreferences = mContext.getSharedPreferences("background", Context.MODE_PRIVATE);
                     String url_local = sharedPreferences.getString("url", null);
+                    String date_local = sharedPreferences.getString("date", null);
                     String url_remote;
+                    String date_now;
+
+                    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                    date_now = format.format(new Date(System.currentTimeMillis()));
 
                     HttpURLConnection conn = (HttpURLConnection) mUrl.openConnection();
                     conn.setConnectTimeout(5000);
@@ -157,7 +183,19 @@ public class AutoBackground {
                     conn.disconnect();
                     br.close();
 
-                    if (url_local == null || (url_remote != null && !url_local.equals(url_remote))) {
+                    boolean flag = false;
+                    if (mUpdateTime == EVERY_DAY){
+                        if (date_local == null || (date_now != null && !date_local.equals(date_now))){
+                            flag = true;
+                        }
+                    }
+                    else{
+                        if (url_local == null || (url_remote != null && !url_local.equals(url_remote))) {
+                            flag = true;
+                        }
+                    }
+
+                    if (flag) {
                         conn = (HttpURLConnection) new URL(url_remote).openConnection();
                         conn.setConnectTimeout(5000);
                         InputStream inputStream = conn.getInputStream();
@@ -169,6 +207,7 @@ public class AutoBackground {
                         outputStream.close();
                         SharedPreferences.Editor editor = sharedPreferences.edit();
                         editor.putString("url", url_remote);
+                        editor.putString("date", date_now);
                         editor.apply();
                     }
                     if (mDownloadFinishedListener != null){
