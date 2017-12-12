@@ -16,6 +16,7 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.graphics.Palette;
 import android.support.v7.widget.Toolbar;
+import android.view.WindowManager;
 
 import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
@@ -24,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.text.SimpleDateFormat;
@@ -49,6 +51,7 @@ public class AutoBackground {
     private onChangeBackgroundFinishdListener mChangeFinishedListener = null;
     private onBackgroundDownloadFinishedListener mDownloadFinishedListener = null;
     private int[] mBarColor;
+    private int mAlpha = 0;
 
     public static final int EVERY_DAY = 0;
     public static final int EVERY_LAUNCH = 1;
@@ -57,16 +60,6 @@ public class AutoBackground {
     public AutoBackground(Context context, @Nullable Toolbar toolbar){
         mContext = context;
         mToolbar = toolbar;
-//        if (PackageManager.PERMISSION_GRANTED!= mContext.checkCallingOrSelfPermission("android.permission.INTERNET")
-//        || PackageManager.PERMISSION_GRANTED != mContext.checkCallingOrSelfPermission("android.permission.WRITE_EXTERNAL_STORAGE")) {
-//            throw new AutoBackgroundException("You don't have the INTERNET or WRITE_EXTERNAL_STORAGE permission");
-//        }
-
-//        if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-//                != PackageManager.PERMISSION_GRANTED) {
-//            //申请WRITE_EXTERNAL_STORAGE权限
-//            ActivityCompat.requestPermissions((Activity) mContext, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},0);
-//        }
         if (ContextCompat.checkSelfPermission(mContext, Manifest.permission.INTERNET)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions((Activity) mContext, new String[]{Manifest.permission.INTERNET},0);
@@ -150,6 +143,7 @@ public class AutoBackground {
                                 else{
                                     mToolbar.setBackgroundColor(tb_color);
                                 }
+                                mToolbar.getBackground().setAlpha(mAlpha);
                             }
                             mBarColor = new int[]{sb_color, tb_color, tb_title, tb_sub};
                             if (mChangeFinishedListener != null){
@@ -178,6 +172,17 @@ public class AutoBackground {
 
                     HttpURLConnection conn = (HttpURLConnection) mUrl.openConnection();
                     conn.setConnectTimeout(5000);
+                    conn.setDoInput(true);
+                    conn.setDoOutput(true);
+                    conn.setRequestMethod("POST");
+
+                    WindowManager manager = ((Activity) mContext).getWindowManager();
+                    int width = manager.getDefaultDisplay().getWidth();
+                    int height = manager.getDefaultDisplay().getHeight();
+                    OutputStream outputStream = conn.getOutputStream();
+                    outputStream.write(String.format(Locale.getDefault(), "width=%d&height=%d", width, height).getBytes());
+                    outputStream.close();
+
                     BufferedReader br = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                     url_remote = br.readLine();
                     conn.disconnect();
@@ -201,10 +206,10 @@ public class AutoBackground {
                         InputStream inputStream = conn.getInputStream();
                         Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
                         File file = new File(mContext.getExternalFilesDir(null), "background.jpg");
-                        BufferedOutputStream outputStream = new BufferedOutputStream(new FileOutputStream(file));
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, outputStream);
-                        outputStream.flush();
-                        outputStream.close();
+                        BufferedOutputStream bos = new BufferedOutputStream(new FileOutputStream(file));
+                        bitmap.compress(Bitmap.CompressFormat.JPEG, 90, bos);
+                        bos.flush();
+                        bos.close();
                         SharedPreferences.Editor editor = sharedPreferences.edit();
                         editor.putString("url", url_remote);
                         editor.putString("date", date_now);
@@ -269,6 +274,11 @@ public class AutoBackground {
         if (mDefaultBg == null){
             this.mDefaultBgEnable = mDefault_bg_enable;
         }
+        return this;
+    }
+
+    public AutoBackground setAlpha(int mAlpha) {
+        this.mAlpha = mAlpha;
         return this;
     }
 
