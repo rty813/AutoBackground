@@ -143,7 +143,7 @@ public class AutoBackground {
                                 else{
                                     mToolbar.setBackgroundColor(tb_color);
                                 }
-                                mToolbar.getBackground().setAlpha(mAlpha);
+//                                mToolbar.getBackground().setAlpha(mAlpha);
                             }
                             mBarColor = new int[]{sb_color, tb_color, tb_title, tb_sub};
                             if (mChangeFinishedListener != null){
